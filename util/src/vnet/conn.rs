@@ -3,6 +3,7 @@ mod conn_test;
 
 use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::Ordering;
+use std::sync::RwLock;
 use std::sync::{Arc, Weak};
 
 use async_trait::async_trait;
@@ -11,7 +12,6 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::conn::Conn;
 use crate::error::*;
-use crate::sync::RwLock;
 use crate::vnet::chunk::{Chunk, ChunkUdp};
 
 const MAX_READ_QUEUE_SIZE: usize = 1024;
@@ -64,7 +64,7 @@ impl UdpConn {
 #[async_trait]
 impl Conn for UdpConn {
     async fn connect(&self, addr: SocketAddr) -> Result<()> {
-        self.rem_addr.write().replace(addr);
+        self.rem_addr.write().unwrap().replace(addr);
 
         Ok(())
     }
@@ -82,7 +82,7 @@ impl Conn for UdpConn {
     /// the n > 0 bytes returned before considering the error err.
     async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
         let mut read_ch = self.read_ch_rx.lock().await;
-        let rem_addr = *self.rem_addr.read();
+        let rem_addr = *self.rem_addr.read().unwrap();
         while let Some(chunk) = read_ch.recv().await {
             let user_data = chunk.user_data();
             let n = std::cmp::min(buf.len(), user_data.len());
@@ -102,7 +102,7 @@ impl Conn for UdpConn {
     }
 
     async fn send(&self, buf: &[u8]) -> Result<usize> {
-        let rem_addr = *self.rem_addr.read();
+        let rem_addr = *self.rem_addr.read().unwrap();
         if let Some(rem_addr) = rem_addr {
             self.send_to(buf, rem_addr).await
         } else {
@@ -141,7 +141,7 @@ impl Conn for UdpConn {
     }
 
     fn remote_addr(&self) -> Option<SocketAddr> {
-        *self.rem_addr.read()
+        *self.rem_addr.read().unwrap()
     }
 
     async fn close(&self) -> Result<()> {

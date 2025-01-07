@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::net::SocketAddr;
+use std::sync::RwLock;
 use std::sync::{Arc, Weak};
 
 use async_trait::async_trait;
 use tokio::sync::{watch, Mutex};
-use util::sync::RwLock;
 use util::{Conn, Error};
 
 mod udp_mux_conn;
@@ -176,7 +176,8 @@ impl UDPMuxDefault {
                                 let conn = {
                                     let address_map = loop_self
                                         .address_map
-                                        .read();
+                                        .read()
+                                        .unwrap();
 
                                     address_map.get(&addr).cloned()
                                 };
@@ -243,7 +244,7 @@ impl UDPMux for UDPMuxDefault {
             }
 
             {
-                let mut address_map = self.address_map.write();
+                let mut address_map = self.address_map.write().unwrap();
 
                 // NOTE: This is important, we need to drop all instances of `UDPMuxConn` to
                 // avoid a retain cycle due to the use of [`std::sync::Arc`] on both sides.
@@ -294,7 +295,7 @@ impl UDPMux for UDPMuxDefault {
         };
 
         if let Some(conn) = removed_conn {
-            let mut address_map = self.address_map.write();
+            let mut address_map = self.address_map.write().unwrap();
 
             for address in conn.get_addresses() {
                 address_map.remove(&address);
@@ -312,7 +313,7 @@ impl UDPMuxWriter for UDPMuxDefault {
 
         let key = conn.key();
         {
-            let mut addresses = self.address_map.write();
+            let mut addresses = self.address_map.write().unwrap();
 
             addresses
                 .entry(addr)

@@ -1,8 +1,8 @@
 use std::net::Ipv4Addr;
 use std::sync::Arc;
+use std::sync::RwLock;
 
 use super::*;
-use crate::sync::RwLock;
 
 /// Since UDP is connectionless, as a server, it doesn't know how to reply
 /// simply using the `Write` method. So, to make it work, `disconnectedPacketConn`
@@ -29,7 +29,7 @@ impl Conn for DisconnectedPacketConn {
 
     async fn recv(&self, buf: &mut [u8]) -> Result<usize> {
         let (n, addr) = self.pconn.recv_from(buf).await?;
-        *self.raddr.write() = addr;
+        *self.raddr.write().unwrap() = addr;
         Ok(n)
     }
 
@@ -38,7 +38,7 @@ impl Conn for DisconnectedPacketConn {
     }
 
     async fn send(&self, buf: &[u8]) -> Result<usize> {
-        let addr = *self.raddr.read();
+        let addr = *self.raddr.read().unwrap();
         self.pconn.send_to(buf, addr).await
     }
 
@@ -51,7 +51,7 @@ impl Conn for DisconnectedPacketConn {
     }
 
     fn remote_addr(&self) -> Option<SocketAddr> {
-        let raddr = *self.raddr.read();
+        let raddr = *self.raddr.read().unwrap();
         Some(raddr)
     }
 

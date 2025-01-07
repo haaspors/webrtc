@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
+use std::sync::RwLock;
 
 use portable_atomic::{AtomicBool, AtomicUsize};
 use tokio::sync::{Mutex, Semaphore};
-use util::sync::RwLock;
 
 use crate::chunk::chunk_payload_data::ChunkPayloadData;
 
@@ -73,10 +73,10 @@ impl PendingQueue {
             permits.unwrap().forget();
 
             if c.unordered {
-                let mut unordered_queue = self.unordered_queue.write();
+                let mut unordered_queue = self.unordered_queue.write().unwrap();
                 unordered_queue.push_back(c);
             } else {
-                let mut ordered_queue = self.ordered_queue.write();
+                let mut ordered_queue = self.ordered_queue.write().unwrap();
                 ordered_queue.push_back(c);
             }
         }
@@ -123,10 +123,10 @@ impl PendingQueue {
             permits.unwrap().forget();
 
             if chunk.unordered {
-                let mut unordered_queue = self.unordered_queue.write();
+                let mut unordered_queue = self.unordered_queue.write().unwrap();
                 unordered_queue.push_back(chunk);
             } else {
-                let mut ordered_queue = self.ordered_queue.write();
+                let mut ordered_queue = self.ordered_queue.write().unwrap();
                 ordered_queue.push_back(chunk);
             }
             self.n_bytes.fetch_add(user_data_len, Ordering::SeqCst);
@@ -142,14 +142,14 @@ impl PendingQueue {
             .expect("chunks to not be empty because of the above check")
             .unordered;
         if unordered {
-            let mut unordered_queue = self.unordered_queue.write();
+            let mut unordered_queue = self.unordered_queue.write().unwrap();
             assert!(
                 chunks.iter().all(|c| c.unordered),
                 "expected all chunks to be unordered"
             );
             unordered_queue.extend(chunks);
         } else {
-            let mut ordered_queue = self.ordered_queue.write();
+            let mut ordered_queue = self.ordered_queue.write().unwrap();
             assert!(
                 chunks.iter().all(|c| !c.unordered),
                 "expected all chunks to be ordered"
@@ -165,16 +165,16 @@ impl PendingQueue {
     pub(crate) fn peek(&self) -> Option<ChunkPayloadData> {
         if self.selected.load(Ordering::SeqCst) {
             if self.unordered_is_selected.load(Ordering::SeqCst) {
-                let unordered_queue = self.unordered_queue.read();
+                let unordered_queue = self.unordered_queue.read().unwrap();
                 return unordered_queue.front().cloned();
             } else {
-                let ordered_queue = self.ordered_queue.read();
+                let ordered_queue = self.ordered_queue.read().unwrap();
                 return ordered_queue.front().cloned();
             }
         }
 
         let c = {
-            let unordered_queue = self.unordered_queue.read();
+            let unordered_queue = self.unordered_queue.read().unwrap();
             unordered_queue.front().cloned()
         };
 
@@ -182,7 +182,7 @@ impl PendingQueue {
             return c;
         }
 
-        let ordered_queue = self.ordered_queue.read();
+        let ordered_queue = self.ordered_queue.read().unwrap();
         ordered_queue.front().cloned()
     }
 
@@ -193,10 +193,10 @@ impl PendingQueue {
     ) -> Option<ChunkPayloadData> {
         let popped = if self.selected.load(Ordering::SeqCst) {
             let popped = if self.unordered_is_selected.load(Ordering::SeqCst) {
-                let mut unordered_queue = self.unordered_queue.write();
+                let mut unordered_queue = self.unordered_queue.write().unwrap();
                 unordered_queue.pop_front()
             } else {
-                let mut ordered_queue = self.ordered_queue.write();
+                let mut ordered_queue = self.ordered_queue.write().unwrap();
                 ordered_queue.pop_front()
             };
             if let Some(p) = &popped {
@@ -211,7 +211,7 @@ impl PendingQueue {
             }
             if unordered {
                 let popped = {
-                    let mut unordered_queue = self.unordered_queue.write();
+                    let mut unordered_queue = self.unordered_queue.write().unwrap();
                     unordered_queue.pop_front()
                 };
                 if let Some(p) = &popped {
@@ -223,7 +223,7 @@ impl PendingQueue {
                 popped
             } else {
                 let popped = {
-                    let mut ordered_queue = self.ordered_queue.write();
+                    let mut ordered_queue = self.ordered_queue.write().unwrap();
                     ordered_queue.pop_front()
                 };
                 if let Some(p) = &popped {
