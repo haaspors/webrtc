@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::marker::{Send, Sync};
 use std::net::SocketAddr;
 use std::sync::atomic::Ordering;
+use std::sync::Mutex as SyncMutex;
 use std::sync::{Arc, Weak};
 
 use channel_bind::*;
@@ -22,7 +23,6 @@ use stun::textattrs::Username;
 use tokio::sync::oneshot::{self, Sender};
 use tokio::sync::{mpsc, Mutex};
 use tokio::time::{Duration, Instant};
-use util::sync::Mutex as SyncMutex;
 use util::Conn;
 
 use crate::error::*;
@@ -272,7 +272,7 @@ impl Allocation {
 
     pub async fn start(&self, lifetime: Duration) {
         let (reset_tx, mut reset_rx) = mpsc::channel(1);
-        self.reset_tx.lock().replace(reset_tx);
+        self.reset_tx.lock().unwrap().replace(reset_tx);
 
         let allocations = self.allocations.clone();
         let five_tuple = self.five_tuple;
@@ -309,13 +309,13 @@ impl Allocation {
     }
 
     fn stop(&self) -> bool {
-        let reset_tx = self.reset_tx.lock().take();
+        let reset_tx = self.reset_tx.lock().unwrap().take();
         reset_tx.is_none() || self.timer_expired.load(Ordering::SeqCst)
     }
 
     /// Updates the allocations lifetime.
     pub async fn refresh(&self, lifetime: Duration) {
-        let reset_tx = self.reset_tx.lock().clone();
+        let reset_tx = self.reset_tx.lock().unwrap().clone();
         if let Some(tx) = reset_tx {
             let _ = tx.send(lifetime).await;
         }

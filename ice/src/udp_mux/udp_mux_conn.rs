@@ -2,11 +2,11 @@ use std::collections::HashSet;
 use std::convert::TryInto;
 use std::io;
 use std::net::SocketAddr;
+use std::sync::Mutex;
 use std::sync::{Arc, Weak};
 
 use async_trait::async_trait;
 use tokio::sync::watch;
-use util::sync::Mutex;
 use util::{Buffer, Conn, Error};
 
 use super::socket_addr_ext::{SocketAddrExt, MAX_ADDR_SIZE};
@@ -207,11 +207,11 @@ impl UDPMuxConnInner {
     }
 
     fn is_closed(&self) -> bool {
-        self.closed_watch_tx.lock().is_none()
+        self.closed_watch_tx.lock().unwrap().is_none()
     }
 
     fn close(self: &Arc<Self>) {
-        let mut closed_tx = self.closed_watch_tx.lock();
+        let mut closed_tx = self.closed_watch_tx.lock().unwrap();
 
         if let Some(tx) = closed_tx.take() {
             let _ = tx.send(true);
@@ -220,7 +220,7 @@ impl UDPMuxConnInner {
             let cloned_self = Arc::clone(self);
 
             {
-                let mut addresses = self.addresses.lock();
+                let mut addresses = self.addresses.lock().unwrap();
                 *addresses = Default::default();
             }
 
@@ -238,27 +238,27 @@ impl UDPMuxConnInner {
 
     // Address related methods
     pub(super) fn get_addresses(&self) -> Vec<SocketAddr> {
-        let addresses = self.addresses.lock();
+        let addresses = self.addresses.lock().unwrap();
 
         addresses.iter().copied().collect()
     }
 
     pub(super) fn add_address(self: &Arc<Self>, addr: SocketAddr) {
         {
-            let mut addresses = self.addresses.lock();
+            let mut addresses = self.addresses.lock().unwrap();
             addresses.insert(addr);
         }
     }
 
     pub(super) fn remove_address(&self, addr: &SocketAddr) {
         {
-            let mut addresses = self.addresses.lock();
+            let mut addresses = self.addresses.lock().unwrap();
             addresses.remove(addr);
         }
     }
 
     pub(super) fn contains_address(&self, addr: &SocketAddr) -> bool {
-        let addresses = self.addresses.lock();
+        let addresses = self.addresses.lock().unwrap();
 
         addresses.contains(addr)
     }

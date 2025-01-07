@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -13,7 +14,6 @@ use rtcp::transport_feedbacks::transport_layer_nack::TransportLayerNack;
 use rtp::extension::abs_send_time_extension::unix2ntp;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Duration;
-use util::sync::Mutex;
 use util::MarshalSize;
 
 use super::{inbound, outbound, StatsContainer};
@@ -305,7 +305,7 @@ impl Interceptor for StatsInterceptor {
         info: &StreamInfo,
         reader: Arc<dyn RTPReader + Send + Sync>,
     ) -> Arc<dyn RTPReader + Send + Sync> {
-        let mut lock = self.recv_streams.lock();
+        let mut lock = self.recv_streams.lock().unwrap();
 
         let e = lock
             .entry(info.ssrc)
@@ -316,7 +316,7 @@ impl Interceptor for StatsInterceptor {
 
     /// unbind_remote_stream is called when the Stream is removed. It can be used to clean up any data related to that track.
     async fn unbind_remote_stream(&self, info: &StreamInfo) {
-        let mut lock = self.recv_streams.lock();
+        let mut lock = self.recv_streams.lock().unwrap();
 
         lock.remove(&info.ssrc);
     }
@@ -328,7 +328,7 @@ impl Interceptor for StatsInterceptor {
         info: &StreamInfo,
         writer: Arc<dyn RTPWriter + Send + Sync>,
     ) -> Arc<dyn RTPWriter + Send + Sync> {
-        let mut lock = self.send_streams.lock();
+        let mut lock = self.send_streams.lock().unwrap();
 
         let e = lock
             .entry(info.ssrc)
@@ -339,7 +339,7 @@ impl Interceptor for StatsInterceptor {
 
     /// unbind_local_stream is called when the Stream is removed. It can be used to clean up any data related to that track.
     async fn unbind_local_stream(&self, info: &StreamInfo) {
-        let mut lock = self.send_streams.lock();
+        let mut lock = self.send_streams.lock().unwrap();
 
         lock.remove(&info.ssrc);
     }

@@ -2,6 +2,7 @@
 mod rtp_sender_test;
 
 use std::sync::atomic::Ordering;
+use std::sync::Mutex as SyncMutex;
 use std::sync::{Arc, Weak};
 
 use ice::rand::generate_crypto_random_string;
@@ -10,7 +11,6 @@ use interceptor::{Attributes, Interceptor, RTCPReader, RTPWriter};
 use portable_atomic::AtomicBool;
 use tokio::select;
 use tokio::sync::{watch, Mutex, Notify};
-use util::sync::Mutex as SyncMutex;
 
 use super::srtp_writer_future::SequenceTransformer;
 use super::RTCRtpRtxParameters;
@@ -302,8 +302,7 @@ impl RTCRtpSender {
         if let Some(t) = rtp_transceiver.as_ref().and_then(|t| t.upgrade()) {
             self.set_paused(!t.direction().has_send());
         }
-        let mut tr = self.rtp_transceiver.lock();
-        *tr = rtp_transceiver;
+        *self.rtp_transceiver.lock().unwrap() = rtp_transceiver;
     }
 
     pub(crate) fn set_paused(&self, paused: bool) {
@@ -343,6 +342,7 @@ impl RTCRtpSender {
             let tr = self
                 .rtp_transceiver
                 .lock()
+                .unwrap()
                 .clone()
                 .and_then(|t| t.upgrade());
             if let Some(t) = &tr {
@@ -401,6 +401,7 @@ impl RTCRtpSender {
             let mid = self
                 .rtp_transceiver
                 .lock()
+                .unwrap()
                 .clone()
                 .and_then(|t| t.upgrade())
                 .and_then(|t| t.mid());
@@ -457,6 +458,7 @@ impl RTCRtpSender {
         let mid = self
             .rtp_transceiver
             .lock()
+            .unwrap()
             .clone()
             .and_then(|t| t.upgrade())
             .and_then(|t| t.mid());

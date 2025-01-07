@@ -1,6 +1,5 @@
+use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
-
-use util::sync::Mutex;
 
 /// MockTime is a helper to replace SystemTime::now() for testing purposes.
 pub struct MockTime {
@@ -18,19 +17,19 @@ impl Default for MockTime {
 impl MockTime {
     /// set_now sets the current time.
     pub fn set_now(&self, now: SystemTime) {
-        let mut cur_now = self.cur_now.lock();
+        let mut cur_now = self.cur_now.lock().unwrap();
         *cur_now = now;
     }
 
     /// now returns the current time.
     pub fn now(&self) -> SystemTime {
-        let cur_now = self.cur_now.lock();
+        let cur_now = self.cur_now.lock().unwrap();
         *cur_now
     }
 
     /// advance advances duration d
     pub fn advance(&mut self, d: Duration) {
-        let mut cur_now = self.cur_now.lock();
+        let mut cur_now = self.cur_now.lock().unwrap();
         *cur_now = cur_now.checked_add(d).unwrap_or(*cur_now);
     }
 }

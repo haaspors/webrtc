@@ -1,12 +1,11 @@
-use portable_atomic::{AtomicU16, AtomicU8};
+use std::sync::Mutex as SyncMutex;
 
-use util::sync::Mutex as SyncMutex;
+use portable_atomic::{AtomicU16, AtomicU8};
 
 use super::candidate_base::*;
 use super::*;
 use crate::error::*;
 use crate::rand::generate_cand_id;
-use crate::util::*;
 
 /// The config required to create a new `CandidatePeerReflexive`.
 #[derive(Default)]
@@ -37,7 +36,11 @@ impl CandidatePeerReflexiveConfig {
             candidate_type: CandidateType::PeerReflexive,
             address: self.base_config.address,
             port: self.base_config.port,
-            resolved_addr: SyncMutex::new(create_addr(network_type, ip, self.base_config.port)),
+            resolved_addr: SyncMutex::new(crate::util::create_addr(
+                network_type,
+                ip,
+                self.base_config.port,
+            )),
             component: AtomicU16::new(self.base_config.component),
             foundation_override: self.base_config.foundation,
             priority_override: self.base_config.priority,

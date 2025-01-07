@@ -10,13 +10,12 @@ homepage = "https://webrtc.rs"
 repository = "https://github.com/webrtc-rs/webrtc/tree/master/util"
 
 [features]
-default = ["buffer", "conn", "ifaces", "vnet", "marshal", "sync"]
+default = ["buffer", "conn", "ifaces", "vnet", "marshal"]
 buffer = []
-conn = ["buffer", "sync"]
+conn = ["buffer"]
 ifaces = []
 vnet = ["ifaces"]
 marshal = []
-sync = []
 
 [dependencies]
 tokio = { version = "1.32.0", features = [

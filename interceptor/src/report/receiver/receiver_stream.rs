@@ -1,7 +1,7 @@
+use std::sync::Mutex;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
-use util::sync::Mutex;
 
 use super::*;
 use crate::{Attributes, RTPReader};
@@ -185,7 +185,7 @@ impl ReceiverStream {
     }
 
     pub(crate) fn process_rtp(&self, now: SystemTime, pkt: &rtp::packet::Packet) {
-        let mut internal = self.internal.lock();
+        let mut internal = self.internal.lock().unwrap();
         internal.process_rtp(now, pkt);
     }
 
@@ -194,12 +194,12 @@ impl ReceiverStream {
         now: SystemTime,
         sr: &rtcp::sender_report::SenderReport,
     ) {
-        let mut internal = self.internal.lock();
+        let mut internal = self.internal.lock().unwrap();
         internal.process_sender_report(now, sr);
     }
 
     pub(crate) fn generate_report(&self, now: SystemTime) -> rtcp::receiver_report::ReceiverReport {
-        let mut internal = self.internal.lock();
+        let mut internal = self.internal.lock().unwrap();
         internal.generate_report(now)
     }
 }

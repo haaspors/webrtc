@@ -336,7 +336,7 @@ async fn test_rtp_sender_replace_track_invalid_codec_change() -> Result<()> {
         .await?;
 
     {
-        let tr = rtp_sender.rtp_transceiver.lock();
+        let tr = rtp_sender.rtp_transceiver.lock().unwrap();
         let t = tr
             .as_ref()
             .and_then(|t| t.upgrade())

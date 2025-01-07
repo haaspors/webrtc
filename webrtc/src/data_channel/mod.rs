@@ -9,6 +9,7 @@ pub mod data_channel_state;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::Ordering;
+use std::sync::Mutex as SyncMutex;
 use std::sync::{Arc, Weak};
 use std::time::SystemTime;
 
@@ -21,7 +22,6 @@ use data_channel_state::RTCDataChannelState;
 use portable_atomic::{AtomicBool, AtomicU16, AtomicU8, AtomicUsize};
 use sctp::stream::OnBufferedAmountLowFn;
 use tokio::sync::{Mutex, Notify};
-use util::sync::Mutex as SyncMutex;
 
 use crate::api::setting_engine::SettingEngine;
 use crate::error::{Error, OnErrorHdlrFn, Result};
@@ -216,7 +216,7 @@ impl RTCDataChannel {
     /// on_open sets an event handler which is invoked when
     /// the underlying data transport has been established (or re-established).
     pub fn on_open(&self, f: OnOpenHdlrFn) {
-        let _ = self.on_open_handler.lock().replace(f);
+        let _ = self.on_open_handler.lock().unwrap().replace(f);
 
         if self.ready_state() == RTCDataChannelState::Open {
             self.do_open();
@@ -224,7 +224,7 @@ impl RTCDataChannel {
     }
 
     fn do_open(&self) {
-        let on_open_handler = self.on_open_handler.lock().take();
+        let on_open_handler = self.on_open_handler.lock().unwrap().take();
         if on_open_handler.is_none() {
             return;
         }

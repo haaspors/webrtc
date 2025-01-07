@@ -83,6 +83,3 @@ pub use crate::marshal::{exact_size_buf::ExactSizeBuf, Marshal, MarshalSize, Unm
 
 mod error;
 pub use error::{Error, Result};
-
-#[cfg(feature = "sync")]
-pub mod sync;

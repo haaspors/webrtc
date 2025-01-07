@@ -1,4 +1,5 @@
 use std::sync::atomic::Ordering;
+use std::sync::Mutex as SyncMutex;
 use std::sync::{Arc, Weak};
 
 use async_trait::async_trait;
@@ -8,7 +9,6 @@ use portable_atomic::AtomicBool;
 use srtp::session::Session;
 use srtp::stream::Stream;
 use tokio::sync::Mutex;
-use util;
 
 use crate::dtls_transport::RTCDtlsTransport;
 use crate::error::{Error, Result};
@@ -20,7 +20,7 @@ use crate::rtp_transceiver::SSRC;
 /// Used to override outgoing `RTP` packets' sequence numbers. On creating it is
 /// unabled and can be enabled before sending data beginning. Once data sending
 /// began it can not be enabled any more.
-pub(crate) struct SequenceTransformer(util::sync::Mutex<SequenceTransformerInner>);
+pub(crate) struct SequenceTransformer(SyncMutex<SequenceTransformerInner>);
 
 /// [`SequenceTransformer`] inner.
 struct SequenceTransformerInner {
@@ -34,7 +34,7 @@ struct SequenceTransformerInner {
 impl SequenceTransformer {
     /// Creates a new [`SequenceTransformer`].
     pub(crate) fn new() -> Self {
-        Self(util::sync::Mutex::new(SequenceTransformerInner {
+        Self(SyncMutex::new(SequenceTransformerInner {
             offset: 0,
             last_sq: rand::random(),
             reset_needed: false,
@@ -53,7 +53,7 @@ impl SequenceTransformer {
     /// With [`Error::ErrRTPSenderSeqTransEnabled`] on trying to enable
     /// [`SequenceTransformer`] after data sending began.
     pub(crate) fn enable(&self) -> Result<()> {
-        let mut guard = self.0.lock();
+        let mut guard = self.0.lock().unwrap();
 
         if guard.enabled {
             return Err(Error::ErrRTPSenderSeqTransEnabled);
@@ -69,7 +69,7 @@ impl SequenceTransformer {
     /// Indicates [`SequenceTransformer`] about necessity of recalculating
     /// `offset`.
     pub(crate) fn reset_offset(&self) {
-        self.0.lock().reset_needed = true;
+        self.0.lock().unwrap().reset_needed = true;
     }
 
     /// Gets [`Some`] consistent `sequence number` if this [`SequenceTransformer`] is
@@ -77,7 +77,7 @@ impl SequenceTransformer {
     ///
     /// Once this method is called, considers data sending began.
     fn seq_number(&self, raw_sn: u16) -> Option<u16> {
-        let mut guard = self.0.lock();
+        let mut guard = self.0.lock().unwrap();
         guard.data_sent = true;
 
         if !guard.enabled {

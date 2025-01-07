@@ -4,11 +4,11 @@ mod media_engine_test;
 use std::collections::HashMap;
 use std::ops::Range;
 use std::sync::atomic::Ordering;
+use std::sync::Mutex as SyncMutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use portable_atomic::AtomicBool;
 use sdp::description::session::SessionDescription;
-use util::sync::Mutex as SyncMutex;
 
 use crate::error::{Error, Result};
 use crate::peer_connection::sdp::{
@@ -436,7 +436,7 @@ impl MediaEngine {
         &self,
         extension: RTCRtpHeaderExtensionCapability,
     ) -> (isize, bool, bool) {
-        let negotiated_header_extensions = self.negotiated_header_extensions.lock();
+        let negotiated_header_extensions = self.negotiated_header_extensions.lock().unwrap();
         if negotiated_header_extensions.is_empty() {
             return (0, false, false);
         }
@@ -466,7 +466,7 @@ impl MediaEngine {
         payload_type: PayloadType,
     ) -> Result<(RTCRtpCodecParameters, RTPCodecType)> {
         if self.negotiated_video.load(Ordering::SeqCst) {
-            let negotiated_video_codecs = self.negotiated_video_codecs.lock();
+            let negotiated_video_codecs = self.negotiated_video_codecs.lock().unwrap();
             for codec in &*negotiated_video_codecs {
                 if codec.payload_type == payload_type {
                     return Ok((codec.clone(), RTPCodecType::Video));
@@ -474,7 +474,7 @@ impl MediaEngine {
             }
         }
         if self.negotiated_audio.load(Ordering::SeqCst) {
-            let negotiated_audio_codecs = self.negotiated_audio_codecs.lock();
+            let negotiated_audio_codecs = self.negotiated_audio_codecs.lock().unwrap();
             for codec in &*negotiated_audio_codecs {
                 if codec.payload_type == payload_type {
                     return Ok((codec.clone(), RTPCodecType::Audio));
@@ -591,8 +591,8 @@ impl MediaEngine {
         extension: &str,
         typ: RTPCodecType,
     ) -> Result<()> {
-        let mut negotiated_header_extensions = self.negotiated_header_extensions.lock();
-        let mut proposed_header_extensions = self.proposed_header_extensions.lock();
+        let mut negotiated_header_extensions = self.negotiated_header_extensions.lock().unwrap();
+        let mut proposed_header_extensions = self.proposed_header_extensions.lock().unwrap();
 
         for local_extension in &self.header_extensions {
             if local_extension.uri != extension {
@@ -638,10 +638,10 @@ impl MediaEngine {
     pub(crate) async fn push_codecs(&self, codecs: Vec<RTCRtpCodecParameters>, typ: RTPCodecType) {
         for codec in codecs {
             if typ == RTPCodecType::Audio {
-                let mut negotiated_audio_codecs = self.negotiated_audio_codecs.lock();
+                let mut negotiated_audio_codecs = self.negotiated_audio_codecs.lock().unwrap();
                 MediaEngine::add_codec(&mut negotiated_audio_codecs, codec);
             } else if typ == RTPCodecType::Video {
-                let mut negotiated_video_codecs = self.negotiated_video_codecs.lock();
+                let mut negotiated_video_codecs = self.negotiated_video_codecs.lock().unwrap();
                 MediaEngine::add_codec(&mut negotiated_video_codecs, codec);
             }
         }
@@ -706,15 +706,13 @@ impl MediaEngine {
     pub(crate) fn get_codecs_by_kind(&self, typ: RTPCodecType) -> Vec<RTCRtpCodecParameters> {
         if typ == RTPCodecType::Video {
             if self.negotiated_video.load(Ordering::SeqCst) {
-                let negotiated_video_codecs = self.negotiated_video_codecs.lock();
-                negotiated_video_codecs.clone()
+                self.negotiated_video_codecs.lock().unwrap().clone()
             } else {
                 self.video_codecs.clone()
             }
         } else if typ == RTPCodecType::Audio {
             if self.negotiated_audio.load(Ordering::SeqCst) {
-                let negotiated_audio_codecs = self.negotiated_audio_codecs.lock();
-                negotiated_audio_codecs.clone()
+                self.negotiated_audio_codecs.lock().unwrap().clone()
             } else {
                 self.audio_codecs.clone()
             }
@@ -733,7 +731,7 @@ impl MediaEngine {
         if self.negotiated_video.load(Ordering::SeqCst) && typ == RTPCodecType::Video
             || self.negotiated_audio.load(Ordering::SeqCst) && typ == RTPCodecType::Audio
         {
-            let negotiated_header_extensions = self.negotiated_header_extensions.lock();
+            let negotiated_header_extensions = self.negotiated_header_extensions.lock().unwrap();
             for (id, e) in &*negotiated_header_extensions {
                 if e.is_matching_direction(direction)
                     && (e.is_audio && typ == RTPCodecType::Audio
@@ -746,8 +744,9 @@ impl MediaEngine {
                 }
             }
         } else {
-            let mut proposed_header_extensions = self.proposed_header_extensions.lock();
-            let mut negotiated_header_extensions = self.negotiated_header_extensions.lock();
+            let mut proposed_header_extensions = self.proposed_header_extensions.lock().unwrap();
+            let mut negotiated_header_extensions =
+                self.negotiated_header_extensions.lock().unwrap();
 
             for local_extension in &self.header_extensions {
                 let relevant = local_extension.is_matching_direction(direction)
@@ -829,7 +828,7 @@ impl MediaEngine {
 
         let mut header_extensions = vec![];
         {
-            let negotiated_header_extensions = self.negotiated_header_extensions.lock();
+            let negotiated_header_extensions = self.negotiated_header_extensions.lock().unwrap();
             for (id, e) in &*negotiated_header_extensions {
                 if e.is_audio && typ == RTPCodecType::Audio
                     || e.is_video && typ == RTPCodecType::Video

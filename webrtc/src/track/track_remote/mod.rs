@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::Ordering;
+use std::sync::Mutex as SyncMutex;
 use std::sync::{Arc, Weak};
 
 use arc_swap::ArcSwapOption;
@@ -9,7 +10,6 @@ use interceptor::{Attributes, Interceptor};
 use portable_atomic::{AtomicU32, AtomicU8, AtomicUsize};
 use smol_str::SmolStr;
 use tokio::sync::Mutex;
-use util::sync::Mutex as SyncMutex;
 
 use crate::api::media_engine::MediaEngine;
 use crate::error::{Error, Result};
@@ -112,24 +112,20 @@ impl TrackRemote {
     /// stream, but doesn't have to globally unique. A common example would be 'audio' or 'video'
     /// and StreamID would be 'desktop' or 'webcam'
     pub fn id(&self) -> String {
-        let id = self.id.lock();
-        id.clone()
+        self.id.lock().unwrap().clone()
     }
 
     pub fn set_id(&self, s: String) {
-        let mut id = self.id.lock();
-        *id = s;
+        *self.id.lock().unwrap() = s;
     }
 
     /// stream_id is the group this track belongs too. This must be unique
     pub fn stream_id(&self) -> String {
-        let stream_id = self.stream_id.lock();
-        stream_id.clone()
+        self.stream_id.lock().unwrap().clone()
     }
 
     pub fn set_stream_id(&self, s: String) {
-        let mut stream_id = self.stream_id.lock();
-        *stream_id = s;
+        *self.stream_id.lock().unwrap() = s;
     }
 
     /// rid gets the RTP Stream ID of this Track
@@ -173,23 +169,19 @@ impl TrackRemote {
 
     /// codec gets the Codec of the track
     pub fn codec(&self) -> RTCRtpCodecParameters {
-        let codec = self.codec.lock();
-        codec.clone()
+        self.codec.lock().unwrap().clone()
     }
 
     pub fn set_codec(&self, codec: RTCRtpCodecParameters) {
-        let mut c = self.codec.lock();
-        *c = codec;
+        *self.codec.lock().unwrap() = codec;
     }
 
     pub fn params(&self) -> RTCRtpParameters {
-        let p = self.params.lock();
-        p.clone()
+        self.params.lock().unwrap().clone()
     }
 
     pub fn set_params(&self, params: RTCRtpParameters) {
-        let mut p = self.params.lock();
-        *p = params;
+        *self.params.lock().unwrap() = params;
     }
 
     pub fn onmute<F>(&self, handler: F)
@@ -251,18 +243,12 @@ impl TrackRemote {
                 }
             }
             self.payload_type.store(payload_type, Ordering::SeqCst);
-            {
-                let mut codec = self.codec.lock();
-                *codec = if let Some(codec) = p.codecs.first() {
-                    codec.clone()
-                } else {
-                    return Err(Error::ErrCodecNotFound);
-                };
-            }
-            {
-                let mut params = self.params.lock();
-                *params = p;
-            }
+
+            let Some(codec) = p.codecs.first() else {
+                return Err(Error::ErrCodecNotFound);
+            };
+            *self.codec.lock().unwrap() = codec.clone();
+            *self.params.lock().unwrap() = p;
         }
 
         Ok(())

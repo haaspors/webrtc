@@ -2,13 +2,14 @@ use std::fmt;
 use std::ops::Add;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::Mutex as SyncMutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use crc::{Crc, CRC_32_ISCSI};
 use portable_atomic::{AtomicU16, AtomicU64, AtomicU8};
 use tokio::sync::{broadcast, Mutex};
-use util::sync::Mutex as SyncMutex;
+use util::Conn;
 
 use super::*;
 use crate::candidate::candidate_host::CandidateHostConfig;
@@ -16,7 +17,6 @@ use crate::candidate::candidate_peer_reflexive::CandidatePeerReflexiveConfig;
 use crate::candidate::candidate_relay::CandidateRelayConfig;
 use crate::candidate::candidate_server_reflexive::CandidateServerReflexiveConfig;
 use crate::error::*;
-use crate::util::*;
 
 #[derive(Default)]
 pub struct CandidateBaseConfig {
@@ -27,7 +27,7 @@ pub struct CandidateBaseConfig {
     pub component: u16,
     pub priority: u32,
     pub foundation: String,
-    pub conn: Option<Arc<dyn util::Conn + Send + Sync>>,
+    pub conn: Option<Arc<dyn Conn + Send + Sync>>,
     pub initialized_ch: Option<broadcast::Receiver<()>>,
 }
 
@@ -47,7 +47,7 @@ pub struct CandidateBase {
     pub(crate) last_sent: AtomicU64,
     pub(crate) last_received: AtomicU64,
 
-    pub(crate) conn: Option<Arc<dyn util::Conn + Send + Sync>>,
+    pub(crate) conn: Option<Arc<dyn Conn + Send + Sync>>,
     pub(crate) closed_ch: Arc<Mutex<Option<broadcast::Sender<()>>>>,
 
     pub(crate) foundation_override: String,
@@ -232,7 +232,7 @@ impl Candidate for CandidateBase {
     }
 
     fn addr(&self) -> SocketAddr {
-        *self.resolved_addr.lock()
+        *self.resolved_addr.lock().unwrap()
     }
 
     /// Stops the recvLoop.
@@ -295,13 +295,13 @@ impl Candidate for CandidateBase {
         self.network_type
             .store(network_type as u8, Ordering::SeqCst);
 
-        let addr = create_addr(network_type, *ip, self.port);
-        *self.resolved_addr.lock() = addr;
+        let addr = crate::util::create_addr(network_type, *ip, self.port);
+        *self.resolved_addr.lock().unwrap() = addr;
 
         Ok(())
     }
 
-    fn get_conn(&self) -> Option<&Arc<dyn util::Conn + Send + Sync>> {
+    fn get_conn(&self) -> Option<&Arc<dyn Conn + Send + Sync>> {
         self.conn.as_ref()
     }
 

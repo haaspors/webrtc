@@ -1,7 +1,8 @@
+use std::sync::Mutex as SyncMutex;
+
 use portable_atomic::{AtomicBool, AtomicU64};
 
 use arc_swap::ArcSwapOption;
-use util::sync::Mutex as SyncMutex;
 
 use super::agent_transport::*;
 use super::*;
